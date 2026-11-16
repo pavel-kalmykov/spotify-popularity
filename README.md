@@ -6,13 +6,18 @@ The notebook compares linear regression, Ridge, Random Forest and XGBoost. It al
 
 These are estimates of the score in a historical dataset, not forecasts of future streams or chart positions. Artist identity is deliberately excluded.
 
-## Data and evaluation
+[![API and container](https://github.com/pavel-kalmykov/spotify-popularity/actions/workflows/ci.yml/badge.svg)](https://github.com/pavel-kalmykov/spotify-popularity/actions/workflows/ci.yml)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/)
 
-The committed `data/spotify_tracks.csv` is the [Spotify tracks dataset](https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset) (the source card labels its license BSD). It contains 114,000 rows across 114 genres and 89,741 distinct track IDs. The stored CSV includes an index column, which the loader excludes from the features.
+**Live API:** [interactive documentation](https://spotify-popularity-pavel.fly.dev/docs) | [health](https://spotify-popularity-pavel.fly.dev/health)
 
-Exact duplicate rows are removed. Where copies of a track disagree on popularity, the maximum is used as an explicit aggregation rule, not as a verified correction. All genres are retained. Duration gets a `log1p` transform; undocumented time-signature codes are grouped as `unknown`.
+The public deployment is temporary and intended for peer evaluation. Local training and Docker execution remain available after it is removed.
 
-The notebook splits unique track IDs into approximately 60% training, 20% validation and 20% test, then recovers their rows. Model selection uses only training and validation. Final models are trained on their combined 80% and evaluated per track on the reserved 20%. The standalone training script reproduces that final split and the fixed winning configurations without rerunning the searches.
+<p align="center">
+  <img src="docs/screenshots/prediction.webp" alt="A real prediction request to the deployed Fly.io API returning HTTP 200" width="600">
+</p>
+
+## Results
 
 | Test metric | Baseline | Selected model |
 | --- | ---: | ---: |
@@ -25,6 +30,31 @@ The notebook splits unique track IDs into approximately 60% training, 20% valida
 Classification uses popularity greater than 50 as its label and a probability threshold of 0.5 for its decision. The baseline uses the training population's mean score or hit rate. The classifier's baseline predicts no hits at that threshold.
 
 The regressor improves on the constant baseline, but substantial uncertainty remains for an individual song. The classifier identifies about half of the actual hits. Another limitation is that EDA and some preparation decisions used the full dataset before splitting; test was excluded from model fitting and tuning, but not exploratory analysis. A track-ID split also allows the same artist to occur in multiple partitions.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CSV[Committed Spotify CSV] --> CLEAN[Deduplication and target aggregation]
+    CLEAN --> SPLIT[Split by track ID]
+    SPLIT --> PREP[Shared feature preparation and multi-hot genres]
+    PREP --> RF[Random Forest regressor and classifier]
+    RF --> FILE[Serialized models and genre encoder]
+    FILE --> API[FastAPI container on Fly.io]
+    REQUEST[Audio features and genre list] --> API
+    API --> RESPONSE[Score, hit probability and decision]
+```
+
+The notebook compares candidates; `train.py` reproduces the selected models without a hyperparameter search. Training, the notebook's final preparation and the API share the same feature code.
+
+## Data and evaluation
+
+
+The committed `data/spotify_tracks.csv` is the [Spotify tracks dataset](https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset) (the source card labels its license BSD). It contains 114,000 rows across 114 genres and 89,741 distinct track IDs. The stored CSV includes an index column, which the loader excludes from the features.
+
+Exact duplicate rows are removed. Where copies of a track disagree on popularity, the maximum is used as an explicit aggregation rule, not as a verified correction. All genres are retained. Duration gets a `log1p` transform; undocumented time-signature codes are grouped as `unknown`.
+
+The notebook splits unique track IDs into approximately 60% training, 20% validation and 20% test, then recovers their rows. Model selection uses only training and validation. Final models are trained on their combined 80% and evaluated per track on the reserved 20%. The standalone training script reproduces that final split and the fixed winning configurations without rerunning the searches.
 
 ## Run locally
 
@@ -106,3 +136,38 @@ uv run --group test pytest --cov=spotify_popularity.api --cov=spotify_popularity
 The tests use small, genuinely trained models and temporary artifacts. They cover request partitions and boundaries, prediction parity, the hit decision at probability 0.5, feature transformations and startup failures. They do not need the production model artifact.
 
 GitHub Actions runs Ruff, Flake8, mypy, API tests with branch coverage, and a Docker HTTP smoke check on pushes and pull requests. It uploads test reports. A manual workflow run also trains the full models and uploads their evaluation metrics.
+
+## Temporary deployment on Fly.io
+
+`fly.toml` configures the service in Paris with 4 GB RAM, two shared CPUs and automatic stop/start. No machine is kept running when the app is idle. Stopped machines can still incur storage charges; automatic stopping is not the same as deleting the application.
+
+The Docker image includes the trained model artifact. To reproduce the deployment from a fresh clone:
+
+```bash
+uv sync --locked --no-dev
+uv run --no-dev python train.py
+flyctl auth login
+flyctl apps create spotify-popularity-pavel --org personal
+flyctl deploy --remote-only --ha=false
+```
+
+Application names are globally unique. If deploying your own copy, choose another name in `fly.toml` and use it in the commands. The `apps create` command is only needed once. `--ha=false` avoids creating a spare machine. The remote model-loading process exceeded the 2 GB machine limit, so this deployment reserves 4 GB for startup headroom.
+
+Check the deployed service with:
+
+```bash
+curl --fail https://spotify-popularity-pavel.fly.dev/health
+curl --fail -X POST https://spotify-popularity-pavel.fly.dev/predict \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/track.json
+```
+
+The API documentation is at <https://spotify-popularity-pavel.fly.dev/docs>. The service is public and intended for this project's evaluation, not unrestricted production traffic. Its first request after an idle stop must wait for the models to load.
+
+After evaluation, remove the temporary deployment to stop its ongoing charges:
+
+```bash
+flyctl apps destroy spotify-popularity-pavel
+```
+
+Review any remaining build resources and billing in the Fly.io dashboard as well. Deleting the application makes its public URL unavailable.
