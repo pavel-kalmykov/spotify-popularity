@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!README.md
+!predict.py
+!src/
+!src/spotify_popularity/
+!src/spotify_popularity/*.py
+!models/
+!models/model.joblib

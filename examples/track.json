@@ -1,0 +1,17 @@
+{
+  "duration_ms": 230666,
+  "danceability": 0.676,
+  "energy": 0.461,
+  "loudness": -6.746,
+  "speechiness": 0.143,
+  "acousticness": 0.0322,
+  "instrumentalness": 0.00000101,
+  "liveness": 0.358,
+  "valence": 0.715,
+  "tempo": 87.917,
+  "explicit": false,
+  "key": 1,
+  "mode": 0,
+  "time_signature": 4,
+  "genres": ["acoustic", "j-pop", "singer-songwriter", "songwriter"]
+}
