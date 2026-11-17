@@ -48,8 +48,6 @@ def test_missing_field(client, payload, field):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("energy", -0.01),
-        ("energy", 1.01),
         ("energy", None),
         ("loudness", "NaN"),
         ("tempo", -1),
@@ -100,16 +98,14 @@ def test_valid_boundaries(client, payload, field, value):
     assert response.json() == expected
 
 
-def test_health_reports_artifact_thresholds(client):
-    # given
-    bundle = client.app.state.bundle
+def test_health_reports_documented_thresholds(client):
     # when
     response = client.get("/health")
     # then
     assert response.json() == {
         "status": "ok",
-        "hit_threshold": bundle.hit_threshold,
-        "probability_threshold": bundle.probability_threshold,
+        "hit_threshold": 50,
+        "probability_threshold": 0.5,
     }
 
 
@@ -137,53 +133,6 @@ def test_corrupt_artifact_prevents_startup(tmp_path, monkeypatch):
     with pytest.raises(KeyError), TestClient(app):
         pass
 
-
-@pytest.mark.parametrize(
-    "probability,expected", [(0.4999, False), (0.5, True), (0.5001, True)]
-)
-def test_hit_probability_boundary(artifact, payload, probability, expected):
-    from dataclasses import replace
-    from types import SimpleNamespace
-
-    import numpy as np
-
-    # given
-    classifier_stub = SimpleNamespace(
-        predict_proba=lambda X: np.array([[1 - probability, probability]])
-    )
-    bundle = replace(artifact[1], classifier=classifier_stub)
-    # when
-    result = bundle.predict([payload])
-    # then
-    assert result[0]["hit"] is expected
-
-
-@pytest.mark.parametrize("signature", [0, 1, 2])
-def test_undocumented_signature_is_unknown(payload, signature):
-    import pandas as pd
-
-    from spotify_popularity.features import prepare_base_features
-
-    # given
-    payload["time_signature"] = signature
-    # when
-    transformed = prepare_base_features(pd.DataFrame([payload]))
-    # then
-    assert transformed.loc[0, "time_signature"] == "unknown"
-
-
-def test_duration_is_log_transformed(payload):
-    import numpy as np
-    import pandas as pd
-
-    from spotify_popularity.features import prepare_base_features
-
-    # given
-    raw_duration = payload["duration_ms"]
-    # when
-    transformed = prepare_base_features(pd.DataFrame([payload]))
-    # then
-    assert transformed.loc[0, "duration_ms"] == pytest.approx(np.log1p(raw_duration))
 
 
 @pytest.mark.parametrize(

@@ -7,6 +7,8 @@ import joblib
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from spotify_popularity.model import ModelBundle
+
 
 class TrackRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -47,12 +49,11 @@ app = FastAPI(title="Spotify track popularity", lifespan=lifespan)
 
 
 @app.get("/health")
-def health(request: Request):
-    bundle = request.app.state.bundle
+def health():
     return {
         "status": "ok",
-        "hit_threshold": bundle.hit_threshold,
-        "probability_threshold": bundle.probability_threshold,
+        "hit_threshold": ModelBundle.hit_threshold,
+        "probability_threshold": ModelBundle.probability_threshold,
     }
 
 

@@ -24,16 +24,12 @@ dev = [
     "xgboost>=3.4.1",
 ]
 test = [
-    "flake8>=7.5.0",
     "httpx>=0.28.1",
     "mypy>=2.4.1",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.5",
 ]
-
-[project.scripts]
-spotify-popularity = "spotify_popularity.training:main"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]

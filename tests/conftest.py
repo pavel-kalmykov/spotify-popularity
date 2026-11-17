@@ -47,3 +47,15 @@ def client(artifact, monkeypatch):
     monkeypatch.setenv("MODEL_PATH", str(artifact[0]))
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture
+def bundle_stub(artifact):
+    from types import SimpleNamespace
+
+    import numpy as np
+    bundle = artifact[1]
+    original = bundle.classifier
+    bundle.classifier = SimpleNamespace(predict_proba=lambda X: np.zeros((len(X), 2)))
+    yield bundle
+    bundle.classifier = original
