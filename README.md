@@ -11,6 +11,8 @@ These are estimates of the score in a historical dataset, not forecasts of futur
 
 **Live API:** [interactive documentation](https://spotify-popularity-pavel.fly.dev/docs) | [health](https://spotify-popularity-pavel.fly.dev/health)
 
+**Read the notebook:** [rendered with code and outputs](https://pavel-kalmykov.github.io/spotify-popularity/notebook.html) (auto-published on every change)
+
 The public deployment is temporary and intended for peer evaluation. Local training and Docker execution remain available after it is removed.
 
 <p align="center">

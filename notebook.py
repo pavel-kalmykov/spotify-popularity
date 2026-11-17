@@ -1068,9 +1068,10 @@ def _(
         color=SPOTIFY_GREEN,
     )
     _ax.axvline(baseline_rmse, color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _ax.set_xlim(right=baseline_rmse + 3)
     _ax.text(
-        baseline_rmse + 0.05,
-        4.4,
+        baseline_rmse + 0.15,
+        4.45,
         f"baseline = {baseline_rmse:.2f}",
         color="#B3B3B3",
         va="center",
@@ -1642,6 +1643,7 @@ def _(SPOTIFY_GREEN, final_regressor, pd, plt, sns):
     )
     _axes[0].set_title("The audio carries the ranking")
     _axes[0].set_xlabel("importance")
+    _axes[0].set_ylabel("")
 
     sns.barplot(
         x=_by_group.values,
@@ -1789,7 +1791,9 @@ def _(
     _axes[1].set_xlabel("actual popularity")
     _axes[1].set_ylabel("hit probability")
     _axes[1].set_title("Hits live in the top right")
-    _axes[1].legend(title="decision", loc="lower right")
+    sns.move_legend(
+        _axes[1], "upper center", bbox_to_anchor=(0.5, -0.14), ncols=2, frameon=False
+    )
 
     _corner = dict(fontsize=10, color="#FFFFFF", ha="center", va="center", alpha=0.85)
     _axes[1].text(5, 0.97, f"FP\n{_fp}", **_corner)
