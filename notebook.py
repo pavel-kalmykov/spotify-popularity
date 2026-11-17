@@ -7,8 +7,35 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import marimo as mo
+    import seaborn as sns
 
-    return (mo,)
+
+    # Wrapped-style dark theme: near-black canvas, green data ink, white copy.
+    SPOTIFY_GREEN = "#1ED760"
+    SPOTIFY_PALETTE = [SPOTIFY_GREEN, "#61B3E3", "#B3B3B3", "#FFC862"]
+    sns.set_theme(
+        context="notebook",
+        style="dark",
+        palette=SPOTIFY_PALETTE,
+        rc={
+            "figure.facecolor": "#121212",
+            "axes.facecolor": "#121212",
+            "savefig.facecolor": "#121212",
+            "text.color": "#FFFFFF",
+            "axes.labelcolor": "#B3B3B3",
+            "axes.edgecolor": "#3A3A3A",
+            "xtick.color": "#B3B3B3",
+            "ytick.color": "#B3B3B3",
+            "axes.titlecolor": "#FFFFFF",
+            "axes.titlesize": 13,
+            "axes.titleweight": "bold",
+            "axes.grid": True,
+            "grid.color": "#2A2A2A",
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        },
+    )
+    return SPOTIFY_GREEN, mo, sns
 
 
 @app.cell(hide_code=True)
@@ -122,15 +149,12 @@ def _(mo):
 
 
 @app.cell
-def _(both_varying):
-    import seaborn as sns
-
-
+def _(both_varying, sns):
     minmax = both_varying.groupby("track_id").popularity.agg(["min", "max"])
     ax = sns.scatterplot(data=minmax, x="max", y="min", alpha=0.3, s=15)
-    ax.axline((0, 0), slope=1, color="gray", linestyle="--")
-    ax.set_title("Popularity: max vs min values comparison")
-    return (sns,)
+    ax.axline((0, 0), slope=1, color="#B3B3B3", linestyle="--", alpha=0.6)
+    ax.set_title("Copies of a track agree... until zero appears")
+    return
 
 
 @app.cell(hide_code=True)
@@ -209,8 +233,8 @@ def _(sns, track_pop):
     ).set_title("All tracks")
     # Since the huge peak is only for popularity 0, it's easier to show an additional plot rather 
     # than using a log-scale. This way, you avoid its distorsion.
-    sns.histplot(track_pop[track_pop > 0], discrete=True, ax=axes[1]).set_title("Excluding zeros")
-    fig.suptitle("Popularity per track")
+    sns.histplot(track_pop[track_pop > 0], discrete=True, ax=axes[1]).set_title("Without the zeros")
+    fig.suptitle("One wall of zeros, two bumps of hope")
     fig.tight_layout()
     fig
     return (plt,)
@@ -243,9 +267,9 @@ def _(sns, track_pop):
     hit_rate = (track_pop > HIT_THRESHOLD).mean()
 
     ecdf = sns.ecdfplot(track_pop)
-    ecdf.axvline(HIT_THRESHOLD, color="gray", linestyle="--")
-    ecdf.axhline(1 - hit_rate, color="gray", linestyle="--")
-    ecdf.scatter([HIT_THRESHOLD], [1 - hit_rate], color="black", zorder=3)
+    ecdf.axvline(HIT_THRESHOLD, color="#B3B3B3", linestyle="--", alpha=0.6)
+    ecdf.axhline(1 - hit_rate, color="#B3B3B3", linestyle="--", alpha=0.6)
+    ecdf.scatter([HIT_THRESHOLD], [1 - hit_rate], color="#FFFFFF", zorder=3, s=28)
     ecdf.annotate(
         f"~{hit_rate:.0%} of tracks above {HIT_THRESHOLD}",
         xy=(HIT_THRESHOLD, 1 - hit_rate),
@@ -253,7 +277,7 @@ def _(sns, track_pop):
         arrowprops={"arrowstyle": "->"},
     )
     ecdf.set_yticks([0.25, 0.5, 1 - hit_rate, 1.0])
-    ecdf.set_title("Popularity ECDF")
+    ecdf.set_title("1 in 5 tracks is a hit")
     ecdf
     return (HIT_THRESHOLD,)
 
@@ -330,11 +354,6 @@ def _(corrected_df):
     return
 
 
-@app.cell
-def _():
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -353,8 +372,8 @@ def _(corrected_df, numerical_features, sns):
         .sort_values()
     )
     barplot = sns.barplot(x=target_corr.values, y=target_corr.index)
-    barplot.axvline(0, color="gray", linewidth=0.8)
-    barplot.set_title("Spearman correlation with popularity")
+    barplot.axvline(0, color="#B3B3B3", linewidth=0.8, alpha=0.6)
+    barplot.set_title("No single feature predicts popularity")
     return (tracks_one_row,)
 
 
@@ -372,24 +391,34 @@ def _(mo):
 
 
 @app.cell
-def _(numerical_features, sns, tracks_one_row):
+def _(SPOTIFY_GREEN, numerical_features, sns, tracks_one_row):
     import numpy as np
 
     feature_corr = tracks_one_row[numerical_features].corr(method="spearman")
     mask = np.triu(np.ones_like(feature_corr, dtype=bool))
+    from matplotlib.colors import LinearSegmentedColormap
+
+    # Wrapped-style diverging map: purple for negative, canvas-dark neutral at zero,
+    # green for positive. Reads on the dark theme like coolwarm never could.
+    spotify_diverging = LinearSegmentedColormap.from_list(
+        "spotify_diverging", ["#5038A0", "#282828", SPOTIFY_GREEN]
+    )
+
     heatmap = sns.heatmap(
         feature_corr,
         mask=mask,
         annot=True,
         fmt=".2f",
-        cmap="coolwarm",
+        cmap=spotify_diverging,
         vmin=-1,
         vmax=1,
         square=True,
         linewidths=0.5,
+        linecolor="#121212",
         annot_kws={"size": 8},
+        cbar_kws={"label": "Spearman correlation"},
     )
-    heatmap.set_title("Spearman correlation between features")
+    heatmap.set_title("Loud, electric, acoustic: mostly one axis")
     heatmap
     return (np,)
 
@@ -496,8 +525,8 @@ def _(mo):
 def _(HIT_THRESHOLD, genre_stats, pd, sns):
     _top_bottom = pd.concat([genre_stats.head(10), genre_stats.tail(10)])
     _ax = sns.barplot(data=_top_bottom.reset_index(), y="track_genre", x="mean")
-    _ax.axvline(HIT_THRESHOLD, color="gray", linestyle="--")
-    _ax.set_title("Mean popularity by genre: top and bottom 10")
+    _ax.axvline(HIT_THRESHOLD, color="#B3B3B3", linestyle="--", alpha=0.6)
+    _ax.set_title("Genre spans the whole scale: 2 to 59")
     _ax
     return
 
@@ -721,7 +750,7 @@ def _(
         model_train.popularity, model_val.popularity,
     )
     numeric_results.round(4)
-    return (linear_parameter_grid,)
+    return linear_parameter_grid, numeric_results
 
 
 @app.cell(hide_code=True)
@@ -784,7 +813,7 @@ def _(
         model_train.popularity, model_val.popularity,
     )
     categorical_results.round(4)
-    return
+    return (categorical_results,)
 
 
 @app.cell(hide_code=True)
@@ -851,7 +880,7 @@ def _(
         model_train.popularity, model_val.popularity,
     )
     first_genre_results.round(4)
-    return (first_genre_preparation,)
+    return first_genre_preparation, first_genre_results
 
 
 @app.cell(hide_code=True)
@@ -942,7 +971,7 @@ def _(
         model_train.popularity, model_val.popularity,
     )
     multigenre_results.round(4)
-    return (multigenre_preparation,)
+    return multigenre_preparation, multigenre_results
 
 
 @app.cell(hide_code=True)
@@ -994,7 +1023,7 @@ def _(
         df_train.popularity, df_val.popularity,
     )
     all_genres_results.round(4)
-    return
+    return (all_genres_results,)
 
 
 @app.cell(hide_code=True)
@@ -1008,6 +1037,52 @@ def _(mo):
 
     Therefore, I will use the multi-hot representation for the next models.
 
+    Let's now compare the linear ones in one chart with the best validation RMSE of each experiment. The audio features barely move the error; the genre representations are what matters.
+    """)
+    return
+
+
+@app.cell
+def _(
+    SPOTIFY_GREEN,
+    all_genres_results,
+    baseline_rmse,
+    categorical_results,
+    first_genre_results,
+    multigenre_results,
+    numeric_results,
+    pd,
+    sns,
+):
+    _best = pd.concat([
+        numeric_results.head(1),
+        categorical_results.head(1),
+        first_genre_results.head(1),
+        multigenre_results.head(1),
+        all_genres_results.head(1),
+    ])
+    _ax = sns.barplot(
+        data=_best,
+        y="experiment",
+        x="validation RMSE",
+        color=SPOTIFY_GREEN,
+    )
+    _ax.axvline(baseline_rmse, color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _ax.text(
+        baseline_rmse + 0.05,
+        4.4,
+        f"baseline = {baseline_rmse:.2f}",
+        color="#B3B3B3",
+        va="center",
+    )
+    _ax.set_title("Audio barely moves the error. Genre does.")
+    _ax
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ### Trees
 
     Let's now try some non-linear, tree-based models to see if they improve the regression:
@@ -1039,23 +1114,27 @@ def _(
         ),
         ("genres", "passthrough", genre_columns),
     ])
+    # Original search space (12 sampled combinations, ~5 min): n_estimators
+    # [100, 200, 300], max_depth [10, 20, 40, None], min_samples_leaf [1, 2, 5, 10],
+    # min_samples_split [2, 5, 10], max_features [0.5, 0.75, 1.0], bootstrap [True, False].
+    # Reduced to the neighborhood of the best candidate so the notebook reruns fast;
+    # the full-search evidence lives in the text above.
     forest_parameter_distributions = {
         "model": [RandomForestRegressor(random_state=1, n_jobs=-1)],
-        "model__n_estimators": [100, 200, 300],
-        "model__max_depth": [10, 20, 40, None],
-        "model__min_samples_leaf": [1, 2, 5, 10],
-        "model__min_samples_split": [2, 5, 10],
-        "model__max_features": [0.5, 0.75, 1.0],
-        "model__bootstrap": [True, False],
+        "model__n_estimators": [200],
+        "model__max_depth": [40, None],
+        "model__min_samples_leaf": [1],
+        "model__min_samples_split": [2],
+        "model__max_features": [0.75],
+        "model__bootstrap": [True],
     }
     forest_search, forest_results = search_models(
         "multi-hot genres", forest_preparation, forest_parameter_distributions,
         X_train_multigenre, X_val_multigenre,
         model_train.popularity, model_val.popularity,
-        n_iter=12,
     )
     forest_results.round(4)
-    return forest_preparation, forest_search
+    return forest_preparation, forest_results, forest_search
 
 
 @app.cell(hide_code=True)
@@ -1080,6 +1159,10 @@ def _(
     from xgboost import XGBRegressor
 
 
+    # Original search space (12 sampled combinations): n_estimators [100, 200, 400],
+    # max_depth [3, 6, 9], learning_rate [0.03, 0.1, 0.3], min_child_weight [1, 5, 10],
+    # subsample [0.8, 1.0], colsample_bytree [0.8, 1.0].
+    # Reduced to the two strongest candidates from that search.
     xgb_parameter_distributions = {
         "model": [
             XGBRegressor(
@@ -1089,12 +1172,12 @@ def _(
                 n_jobs=-1,
             )
         ],
-        "model__n_estimators": [100, 200, 400],
-        "model__max_depth": [3, 6, 9],
-        "model__learning_rate": [0.03, 0.1, 0.3],
-        "model__min_child_weight": [1, 5, 10],
-        "model__subsample": [0.8, 1.0],
-        "model__colsample_bytree": [0.8, 1.0],
+        "model__n_estimators": [100, 400],
+        "model__max_depth": [6, 9],
+        "model__learning_rate": [0.1],
+        "model__min_child_weight": [1],
+        "model__subsample": [1.0],
+        "model__colsample_bytree": [0.8],
     }
 
     xgb_search, xgb_results = search_models(
@@ -1105,10 +1188,9 @@ def _(
         X_val_multigenre,
         model_train.popularity,
         model_val.popularity,
-        n_iter=12,
     )
     xgb_results.round(4)
-    return
+    return (xgb_results,)
 
 
 @app.cell(hide_code=True)
@@ -1116,6 +1198,83 @@ def _(mo):
     mo.md(r"""
     In this case, among the tested configurations, XGBoost still outperforms the linear models. However, the best result still belongs to the Random Forest (optimized), so we'll keep that one as the best one.
 
+    One could have noticed that the Random Forest training is way slower than the other alternatives. So how do they all compare in terms of performance vs time?
+    """)
+    return
+
+
+@app.cell
+def _(
+    categorical_results,
+    first_genre_results,
+    forest_results,
+    multigenre_results,
+    numeric_results,
+    pd,
+    plt,
+    sns,
+    xgb_results,
+):
+    _linear_best = pd.concat([
+        numeric_results.head(1),
+        categorical_results.head(1),
+        first_genre_results.head(1),
+        multigenre_results.head(1),
+    ]).assign(family="linear (best per experiment)")
+
+    _families = pd.concat([
+        _linear_best[["family", "fit time (s)", "validation RMSE"]],
+        forest_results.assign(family="random forest")[
+            ["family", "fit time (s)", "validation RMSE"]
+        ],
+        xgb_results.assign(family="xgboost")[
+            ["family", "fit time (s)", "validation RMSE"]
+        ],
+    ])
+
+    _fig, _ax = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(
+        data=_families,
+        x="fit time (s)",
+        y="validation RMSE",
+        hue="family",
+        style="family",
+        s=90,
+        alpha=0.8,
+        ax=_ax,
+    )
+    _ax.set_xscale("log")
+    _ax.set_xlabel("training time per candidate (s, log scale)")
+    _ax.set_ylabel("validation RMSE")
+    _ax.set_title("The best score is also the slowest one")
+    _ax.grid(True, which="both", axis="x", alpha=0.25)
+
+    for _family, _marker in [
+        ("linear (best per experiment)", "upper right"),
+        ("random forest", "lower left"),
+        ("xgboost", "upper right"),
+    ]:
+        _row = _families[_families.family == _family].sort_values(
+            "validation RMSE"
+        ).iloc[0]
+        _ax.annotate(
+            f"best {_family.split(' ')[0]}",
+            xy=(_row["fit time (s)"], _row["validation RMSE"]),
+            xytext=(8, -14),
+            textcoords="offset points",
+            fontsize=8,
+            color="#B3B3B3",
+        )
+
+    sns.move_legend(_ax, "upper center", bbox_to_anchor=(0.5, -0.12), ncols=3, frameon=False)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ### Hit classification
 
     So far, we have predicted the popularity score itself. Let's now address the secondary question: can we identify tracks with popularity above 50? I will keep the same partitions and multi-hot genre representation, comparing logistic regression with a random forest classifier.
@@ -1189,8 +1348,8 @@ def _(
                     n_jobs=-1,
                 )
             ],
-            "model__max_depth": [20, None],
-            "model__min_samples_leaf": [1, 5],
+            "model__max_depth": [None],
+            "model__min_samples_leaf": [1],
         },
     ]
 
@@ -1285,7 +1444,14 @@ def _(
 
     hit_validation_results = pd.DataFrame(_metric_rows)
     hit_validation_results.round(4)
-    return clone, f1_score, precision_score, recall_score, roc_auc_score
+    return (
+        clone,
+        f1_score,
+        hit_probabilities,
+        precision_score,
+        recall_score,
+        roc_auc_score,
+    )
 
 
 @app.cell(hide_code=True)
@@ -1294,7 +1460,27 @@ def _(mo):
     At this threshold, roughly 7/10 predicted hits are correct, but the model detects only about half of the actual hits (precision 0.69, recall 0.52). Note that the baseline predicts no hits because its constant probability, around 0.22, never reaches 0.5, so this is expected.
 
     With this in mind, I will keep Random Forest for both tasks and evaluate the selected models on the test set after retraining on training and validation.
+
+    Lastly, let's display the ROC curve which, given the 0.87 AUC, is expected to be somewhat close to the edges.
     """)
+    return
+
+
+@app.cell
+def _(hit_probabilities, roc_auc_score, y_val_hit):
+    from sklearn.metrics import RocCurveDisplay
+
+    _ax = RocCurveDisplay.from_predictions(
+        y_val_hit,
+        hit_probabilities,
+        name="random forest",
+    )
+    _ax.ax_.plot([0, 1], [0, 1], color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _ax.ax_.set_title(
+        "Hits stand out from the crowd "
+        f"(AUC {roc_auc_score(y_val_hit, hit_probabilities):.3f})"
+    )
+    _ax.ax_
     return
 
 
@@ -1402,7 +1588,77 @@ def _(
         },
     ])
     regression_test_results.round(4)
-    return (final_preparation,)
+    return final_preparation, final_regressor, test_popularity_predictions
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    The feature importances of the final forest tell a two-sided story. Individually, the numerical audio features lead the ranking: each of the ten carries more weight than any single genre column. As a group, though, the genres sum almost as much as all the numerical features together, spread across their 114 one-hot columns. And the strongest genre columns are exactly the extreme genres from the EDA (iranian, romance, pop-film...): the forest uses them to flag the very low- and very high-popularity niches.
+    """)
+    return
+
+
+@app.cell
+def _(SPOTIFY_GREEN, final_regressor, pd, plt, sns):
+    _names = final_regressor.named_steps[
+        "preparation"
+    ].get_feature_names_out()
+    _importances = pd.Series(
+        final_regressor.named_steps["model"].feature_importances_,
+        index=_names,
+    )
+
+    def _group(_name):
+        if _name.startswith("numerical__"):
+            return "numerical"
+        if _name.startswith("categorical__"):
+            return "categorical"
+        return "genres"
+
+    _group_colors = {
+        "numerical": "#61B3E3",
+        "categorical": "#B3B3B3",
+        "genres": SPOTIFY_GREEN,
+    }
+
+    _top = _importances.sort_values(ascending=False).head(15).sort_values()
+    _top_groups = _top.index.map(_group)
+
+    _by_group = _importances.groupby(_importances.index.map(_group)).sum()
+    _by_group = _by_group.sort_values()
+
+    _fig, _axes = plt.subplots(
+        1, 2, figsize=(12, 5), gridspec_kw={"width_ratios": [2, 1]}
+    )
+
+    sns.barplot(
+        x=_top.values,
+        y=_top.index,
+        hue=_top_groups,
+        palette=_group_colors,
+        legend=False,
+        ax=_axes[0],
+    )
+    _axes[0].set_title("The audio carries the ranking")
+    _axes[0].set_xlabel("importance")
+
+    sns.barplot(
+        x=_by_group.values,
+        y=_by_group.index,
+        hue=_by_group.index,
+        palette=_group_colors,
+        legend=False,
+        ax=_axes[1],
+    )
+    _axes[1].set_title("Genres add up to almost half")
+    _axes[1].set_xlabel("total importance")
+    _axes[1].set_ylabel("")
+
+    _fig.suptitle("What the forest actually listens to")
+    _fig.tight_layout()
+    _fig
+    return
 
 
 @app.cell(hide_code=True)
@@ -1469,6 +1725,80 @@ def _(
 
     classification_test_results = pd.DataFrame(_test_metric_rows)
     classification_test_results.round(4)
+    return test_hit_probabilities, y_final_test_hit
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    #### Final models' visualization
+
+    We have all the metrics, but an image is worth a thousand words: let's plot how well (or bad) do they perform against the test data!
+
+    1. For the regression, actual vs predicted popularity.
+    2. For the classification, a confusion matrix where each prediction is placed on its "quadrant".
+    """)
+    return
+
+
+@app.cell
+def _(
+    HIT_THRESHOLD,
+    SPOTIFY_GREEN,
+    plt,
+    sns,
+    test_hit_probabilities,
+    test_popularity_predictions,
+    y_final_test,
+    y_final_test_hit,
+):
+    _fig, _axes = plt.subplots(1, 2, figsize=(13, 5.5))
+
+    sns.scatterplot(
+        x=y_final_test,
+        y=test_popularity_predictions,
+        alpha=0.15,
+        s=8,
+        color=SPOTIFY_GREEN,
+        ax=_axes[0],
+    )
+    _axes[0].axline((0, 0), slope=1, color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _axes[0].set_xlabel("actual popularity")
+    _axes[0].set_ylabel("predicted popularity")
+    _axes[0].set_title("Predictions hug the diagonal")
+
+    _predictions = (test_hit_probabilities >= 0.5).astype(int)
+    _correct = _predictions == y_final_test_hit
+    _tp = ((_predictions == 1) & (y_final_test_hit == 1)).sum()
+    _fp = ((_predictions == 1) & (y_final_test_hit == 0)).sum()
+    _fn = ((_predictions == 0) & (y_final_test_hit == 1)).sum()
+    _tn = ((_predictions == 0) & (y_final_test_hit == 0)).sum()
+
+    sns.scatterplot(
+        x=y_final_test,
+        y=test_hit_probabilities,
+        hue=_correct.map({True: "correct", False: "wrong"}),
+        hue_order=["correct", "wrong"],
+        palette={"correct": SPOTIFY_GREEN, "wrong": "#FF6B6B"},
+        alpha=0.35,
+        s=12,
+        ax=_axes[1],
+    )
+    _axes[1].axvline(HIT_THRESHOLD, color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _axes[1].axhline(0.5, color="#B3B3B3", linestyle="--", alpha=0.6, linewidth=1)
+    _axes[1].set_xlabel("actual popularity")
+    _axes[1].set_ylabel("hit probability")
+    _axes[1].set_title("Hits live in the top right")
+    _axes[1].legend(title="decision", loc="lower right")
+
+    _corner = dict(fontsize=10, color="#FFFFFF", ha="center", va="center", alpha=0.85)
+    _axes[1].text(5, 0.97, f"FP\n{_fp}", **_corner)
+    _axes[1].text(5, 0.03, f"TN\n{_tn}", **_corner)
+    _axes[1].text(97, 0.97, f"TP\n{_tp}", **_corner)
+    _axes[1].text(97, 0.03, f"FN\n{_fn}", **_corner)
+
+    _fig.tight_layout()
+    _fig
     return
 
 
@@ -1489,6 +1819,11 @@ def _(mo):
 
     With this, the experimentation with this dataset is done, and we can now move to the production training and deployment.
     """)
+    return
+
+
+@app.cell
+def _():
     return
 
 

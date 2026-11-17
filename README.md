@@ -31,6 +31,26 @@ Classification uses popularity greater than 50 as its label and a probability th
 
 The regressor improves on the constant baseline, but substantial uncertainty remains for an individual song. The classifier identifies about half of the actual hits. Another limitation is that EDA and some preparation decisions used the full dataset before splitting; test was excluded from model fitting and tuning, but not exploratory analysis. A track-ID split also allows the same artist to occur in multiple partitions.
 
+## The story in four charts
+
+**Genre is the signal.** Adding the first genre label to a linear model cuts validation RMSE from 20.2 to 16.8; multi-hot encoding all of a track's genres reaches 16.5. Audio features alone barely move the error.
+
+![Linear models: best validation RMSE per experiment, from the notebook](docs/plots/linear-summary.png)
+
+**Mean popularity per genre runs from 2 to 59.** The top four genres average above the hit threshold of 50; individual tracks still scatter widely within each genre.
+
+![Mean popularity by genre, top and bottom 10](docs/plots/genre-range.png)
+
+**On the held-out test set**, the regressor hugs the diagonal (RMSE 14.21 vs a 20.45 baseline) and the classifier concentrates its hits in the top-right quadrant (ROC AUC 0.87, precision 0.67, recall 0.53). Misclassifications cluster near the threshold lines.
+
+![Test-set scatter: actual vs predicted popularity, and hit-probability quadrants](docs/plots/final-models-test.png)
+
+**What the forest listens to.** Individually the ten audio features dominate the ranking; summed by group, the 114 genre columns add up to almost as much as all of them together.
+
+![Feature importances of the final regressor, individual and by group](docs/plots/feature-importances.png)
+
+All figures come from the notebook with its Wrapped-style theme.
+
 ## Architecture
 
 ```mermaid
