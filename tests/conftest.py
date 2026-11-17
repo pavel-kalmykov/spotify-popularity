@@ -1,8 +1,10 @@
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import joblib
+import numpy as np
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
@@ -47,3 +49,14 @@ def client(artifact, monkeypatch):
     monkeypatch.setenv("MODEL_PATH", str(artifact[0]))
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture
+def bundle_stub(artifact):
+    bundle = artifact[1]
+    original = bundle.classifier
+    bundle.classifier = SimpleNamespace(
+        predict_proba=lambda X: np.zeros((len(X), 2))
+    )
+    yield bundle
+    bundle.classifier = original

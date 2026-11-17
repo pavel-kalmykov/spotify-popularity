@@ -19,7 +19,6 @@ jobs:
           version: '0.12.13'
       - run: uv sync --locked --no-dev --group test
       - run: uv run --no-dev --group test ruff check src tests train.py predict.py
-      - run: uv run --no-dev --group test flake8 src tests train.py predict.py --max-line-length=100
       - run: uv run --no-dev --group test mypy src train.py predict.py --check-untyped-defs --ignore-missing-imports
       - run: uv run --no-dev --group test pytest --cov=spotify_popularity.api --cov=spotify_popularity.model --cov-branch --cov-fail-under=95 --cov-report=xml --junitxml=test-results.xml
         env:

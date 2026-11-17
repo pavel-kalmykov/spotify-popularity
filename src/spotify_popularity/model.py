@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import ClassVar
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -64,12 +65,14 @@ def make_classifier(genre_columns):
 
 @dataclass
 class ModelBundle:
+    """Serve score, hit probability and decision from the trained pair."""
+
     features: FeatureEncoder
     regressor: Pipeline
     classifier: Pipeline
     metadata: dict
-    hit_threshold: int = HIT_THRESHOLD
-    probability_threshold: float = PROBABILITY_THRESHOLD
+    hit_threshold: ClassVar[int] = HIT_THRESHOLD
+    probability_threshold: ClassVar[float] = PROBABILITY_THRESHOLD
 
     def predict(self, records):
         encoded = self.features.transform(pd.DataFrame(records))
@@ -79,7 +82,7 @@ class ModelBundle:
             {
                 "popularity": float(score),
                 "hit_probability": float(probability),
-                "hit": bool(probability >= self.probability_threshold),
+                "hit": bool(probability >= PROBABILITY_THRESHOLD),
             }
             for score, probability in zip(popularity, hit_probability)
         ]
